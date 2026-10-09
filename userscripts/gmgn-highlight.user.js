@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GMGN highlight — Tô ví của tôi / ví được note
 // @namespace    robin-v4.local
-// @version      1.0
+// @version      1.1
 // @description  Tô màu dòng giao dịch / holder / trader trên GMGN.ai có ví trong danh sách. Khớp href ".../address/<ĐỊA CHỈ ĐẦY ĐỦ>" = VÀNG; khớp địa chỉ rút gọn (0x80e0…3382) = CAM. Hỗ trợ EVM (0x…) + Solana, và note/remark.
 // @match        https://gmgn.ai/*
 // @match        https://*.gmgn.ai/*
@@ -9,6 +9,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addValueChangeListener
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function () {
@@ -193,8 +194,10 @@
   }
 
   // ── PANEL 🎯 (frame top) ──
+  let togglePanel = () => {};
   function buildPanel() {
-    if (!document.body) { setTimeout(buildPanel, 400); return; }
+    if (document.getElementById(PANEL_ID)) return;
+    const host = document.body || document.documentElement; if (!host) return;
     const wrap = document.createElement('div');
     wrap.id = PANEL_ID;
     const btn = document.createElement('div');
@@ -227,12 +230,13 @@
 
     wrap.appendChild(btn);
     wrap.appendChild(panel);
-    document.body.appendChild(wrap);
+    host.appendChild(wrap);
     const ta = panel.querySelector('#gmgn-hl-ta');
     const stat = panel.querySelector('#gmgn-hl-stat');
     const dbgout = panel.querySelector('#gmgn-hl-dbgout');
     const showStat = () => { stat.textContent = `Đang khớp: ${ADDR_SET.size} địa chỉ · ${NOTE_SET.size} note · đã tô ${document.querySelectorAll(SEL_HL).length} ô`; };
-    btn.onclick = () => { ta.value = storeGet() ?? DEFAULT_LIST; panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; showStat(); };
+    togglePanel = () => { ta.value = storeGet() ?? DEFAULT_LIST; panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; showStat(); };
+    btn.onclick = () => togglePanel();
     panel.querySelector('#gmgn-hl-close').onclick = () => (panel.style.display = 'none');
     panel.querySelector('#gmgn-hl-save').onclick = () => { storeSet(ta.value); loadList(); scan(); showStat(); stat.textContent += '  ✓'; };
     // 🔍 debug: xem GMGN hiển thị địa chỉ thế nào (href / text rút gọn) + chuỗi tổ tiên của mục đầu tiên
@@ -266,7 +270,16 @@
 
   // ── init ──
   loadList();
-  if (IS_TOP) buildPanel();
+  if (IS_TOP) {
+    buildPanel();
+    // GMGN (Next.js) dựng lại <body> sau khi tải → nút bị xoá. Kiểm tra & gắn lại liên tục.
+    setInterval(buildPanel, 1000);
+    // Dự phòng: mở panel từ menu Tampermonkey hoặc phím tắt Alt+Shift+G
+    try { if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('🎯 Mở danh sách ví (GMGN)', () => { buildPanel(); togglePanel(); }); } catch (e) {}
+    window.addEventListener('keydown', (e) => {
+      if (e.altKey && e.shiftKey && (e.key === 'G' || e.key === 'g' || e.code === 'KeyG')) { e.preventDefault(); buildPanel(); togglePanel(); }
+    }, true);
+  }
   scan();
   try { if (typeof GM_addValueChangeListener === 'function') GM_addValueChangeListener(LS_KEY, () => { loadList(); scan(); }); } catch (e) {}
   let pending = false;
@@ -274,5 +287,5 @@
   function startObs() { if (document.body) obs.observe(document.body, { childList: true, subtree: true, characterData: true }); else setTimeout(startObs, 400); }
   startObs();
   setInterval(scan, 1000);
-  console.log('[GMGN highlight] v1.0 loaded — frame ' + (IS_TOP ? 'TOP' : 'IFRAME'));
+  console.log('[GMGN highlight] v1.1 loaded — frame ' + (IS_TOP ? 'TOP' : 'IFRAME'));
 })();
