@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GMGN highlight — Tô ví của tôi / ví được note
 // @namespace    robin-v4.local
-// @version      1.1
+// @version      1.2
 // @description  Tô màu dòng giao dịch / holder / trader trên GMGN.ai có ví trong danh sách. Khớp href ".../address/<ĐỊA CHỈ ĐẦY ĐỦ>" = VÀNG; khớp địa chỉ rút gọn (0x80e0…3382) = CAM. Hỗ trợ EVM (0x…) + Solana, và note/remark.
 // @match        https://gmgn.ai/*
 // @match        https://*.gmgn.ai/*
@@ -80,7 +80,7 @@
 
   // ── Tìm "dòng" chứa phần tử ──
   function findRow(el) {
-    const sel = 'tr, [role="row"], [data-index], [data-row-key], [class*="table-row"], [class*="TableRow"]';
+    const sel = '[data-sentry-component*="ItemView"], [data-sentry-element*="ItemView"], tr, [role="row"], [data-index], [data-row-key], [class*="table-row"], [class*="TableRow"]';
     let r = el.closest && el.closest(sel);
     // bỏ qua "dòng" quá to (vd: wrapper cả bảng có chữ "row")
     while (r) {
@@ -213,34 +213,34 @@
       width: '360px', background: '#12151f', border: '1px solid #333', borderRadius: '8px',
       padding: '10px', display: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.6)', color: '#ddd',
       font: '12px/1.5 system-ui, sans-serif' });
-    panel.innerHTML = `
-      <div style="font-weight:700;color:#ffd100;margin-bottom:6px">🎯 Ví tô màu — GMGN</div>
-      <div style="color:#888;margin-bottom:6px">
-        <b style="color:#ffd100">Vàng</b> = khớp địa chỉ đầy đủ. <b style="color:#ff8a00">Cam</b> = chỉ khớp địa chỉ rút gọn (đầu…cuối).<br>
-        Mỗi dòng: <b>0x… / ví Solana đầy đủ</b> hoặc <b>chữ</b> (note).</div>
-      <textarea id="gmgn-hl-ta" spellcheck="false" style="width:100%;height:170px;box-sizing:border-box;
-        background:#0a0d14;color:#cfe;border:1px solid #333;border-radius:6px;padding:8px;font:12px/1.5 monospace;resize:vertical"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button id="gmgn-hl-save" style="flex:1;background:#c79a00;color:#111;border:none;border-radius:6px;padding:7px;font-weight:700;cursor:pointer">💾 Lưu & áp dụng</button>
-        <button id="gmgn-hl-dbg" style="background:#2a3f5e;color:#cfe;border:none;border-radius:6px;padding:7px 10px;cursor:pointer">🔍</button>
-        <button id="gmgn-hl-close" style="background:#2a2f3e;color:#ccc;border:none;border-radius:6px;padding:7px 12px;cursor:pointer">Đóng</button>
-      </div>
-      <div id="gmgn-hl-stat" style="color:#7c7;margin-top:6px"></div>
-      <pre id="gmgn-hl-dbgout" style="display:none;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;background:#0a0d14;border:1px solid #333;border-radius:6px;padding:6px;margin-top:6px;color:#9cf;font:11px/1.4 monospace"></pre>`;
+    // KHÔNG dùng innerHTML: GMGN bật Trusted Types (CSP) → innerHTML ném lỗi → nút không bao giờ hiện.
+    const mk = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text != null) e.textContent = text; return e; };
+    panel.appendChild(mk('div', 'font-weight:700;color:#ffd100;margin-bottom:6px', '🎯 Ví tô màu — GMGN'));
+    panel.appendChild(mk('div', 'color:#888;margin-bottom:6px',
+      'VÀNG = khớp địa chỉ đầy đủ · CAM = chỉ khớp địa chỉ rút gọn. Mỗi dòng: 0x… / ví Solana đầy đủ, hoặc chữ (note/remark).'));
+    const ta = mk('textarea', 'width:100%;height:170px;box-sizing:border-box;background:#0a0d14;color:#cfe;border:1px solid #333;border-radius:6px;padding:8px;font:12px/1.5 monospace;resize:vertical');
+    ta.spellcheck = false;
+    panel.appendChild(ta);
+    const bar = mk('div', 'display:flex;gap:8px;margin-top:8px');
+    const bSave  = mk('button', 'flex:1;background:#c79a00;color:#111;border:none;border-radius:6px;padding:7px;font-weight:700;cursor:pointer', '💾 Lưu & áp dụng');
+    const bDbg   = mk('button', 'background:#2a3f5e;color:#cfe;border:none;border-radius:6px;padding:7px 10px;cursor:pointer', '🔍');
+    const bClose = mk('button', 'background:#2a2f3e;color:#ccc;border:none;border-radius:6px;padding:7px 12px;cursor:pointer', 'Đóng');
+    bar.append(bSave, bDbg, bClose);
+    panel.appendChild(bar);
+    const stat = mk('div', 'color:#7c7;margin-top:6px');
+    const dbgout = mk('pre', 'display:none;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;background:#0a0d14;border:1px solid #333;border-radius:6px;padding:6px;margin-top:6px;color:#9cf;font:11px/1.4 monospace');
+    panel.append(stat, dbgout);
 
     wrap.appendChild(btn);
     wrap.appendChild(panel);
     host.appendChild(wrap);
-    const ta = panel.querySelector('#gmgn-hl-ta');
-    const stat = panel.querySelector('#gmgn-hl-stat');
-    const dbgout = panel.querySelector('#gmgn-hl-dbgout');
     const showStat = () => { stat.textContent = `Đang khớp: ${ADDR_SET.size} địa chỉ · ${NOTE_SET.size} note · đã tô ${document.querySelectorAll(SEL_HL).length} ô`; };
     togglePanel = () => { ta.value = storeGet() ?? DEFAULT_LIST; panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; showStat(); };
     btn.onclick = () => togglePanel();
-    panel.querySelector('#gmgn-hl-close').onclick = () => (panel.style.display = 'none');
-    panel.querySelector('#gmgn-hl-save').onclick = () => { storeSet(ta.value); loadList(); scan(); showStat(); stat.textContent += '  ✓'; };
+    bClose.onclick = () => (panel.style.display = 'none');
+    bSave.onclick = () => { storeSet(ta.value); loadList(); scan(); showStat(); stat.textContent += '  ✓'; };
     // 🔍 debug: xem GMGN hiển thị địa chỉ thế nào (href / text rút gọn) + chuỗi tổ tiên của mục đầu tiên
-    panel.querySelector('#gmgn-hl-dbg').onclick = () => {
+    bDbg.onclick = () => {
       const hrefSamples = [], truncSamples = [];
       document.querySelectorAll('a[href]').forEach((a) => {
         const h = a.getAttribute('href') || '';
@@ -269,23 +269,26 @@
   }
 
   // ── init ──
+  const safe = (fn) => () => { try { fn(); } catch (e) { console.error('[GMGN highlight]', e); } };
+  const buildPanelSafe = safe(buildPanel);
   loadList();
   if (IS_TOP) {
-    buildPanel();
+    buildPanelSafe();
     // GMGN (Next.js) dựng lại <body> sau khi tải → nút bị xoá. Kiểm tra & gắn lại liên tục.
-    setInterval(buildPanel, 1000);
+    setInterval(buildPanelSafe, 1000);
     // Dự phòng: mở panel từ menu Tampermonkey hoặc phím tắt Alt+Shift+G
-    try { if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('🎯 Mở danh sách ví (GMGN)', () => { buildPanel(); togglePanel(); }); } catch (e) {}
+    try { if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('🎯 Mở danh sách ví (GMGN)', () => { buildPanelSafe(); togglePanel(); }); } catch (e) {}
     window.addEventListener('keydown', (e) => {
-      if (e.altKey && e.shiftKey && (e.key === 'G' || e.key === 'g' || e.code === 'KeyG')) { e.preventDefault(); buildPanel(); togglePanel(); }
+      if (e.altKey && e.shiftKey && (e.key === 'G' || e.key === 'g' || e.code === 'KeyG')) { e.preventDefault(); buildPanelSafe(); togglePanel(); }
     }, true);
   }
-  scan();
-  try { if (typeof GM_addValueChangeListener === 'function') GM_addValueChangeListener(LS_KEY, () => { loadList(); scan(); }); } catch (e) {}
+  const scanSafe = safe(scan);
+  scanSafe();
+  try { if (typeof GM_addValueChangeListener === 'function') GM_addValueChangeListener(LS_KEY, () => { loadList(); scanSafe(); }); } catch (e) {}
   let pending = false;
-  const obs = new MutationObserver(() => { if (pending) return; pending = true; setTimeout(() => { pending = false; scan(); }, 250); });
+  const obs = new MutationObserver(() => { if (pending) return; pending = true; setTimeout(() => { pending = false; scanSafe(); }, 250); });
   function startObs() { if (document.body) obs.observe(document.body, { childList: true, subtree: true, characterData: true }); else setTimeout(startObs, 400); }
   startObs();
-  setInterval(scan, 1000);
-  console.log('[GMGN highlight] v1.1 loaded — frame ' + (IS_TOP ? 'TOP' : 'IFRAME'));
+  setInterval(scanSafe, 1000);
+  console.log('[GMGN highlight] v1.2 loaded — frame ' + (IS_TOP ? 'TOP' : 'IFRAME'));
 })();
